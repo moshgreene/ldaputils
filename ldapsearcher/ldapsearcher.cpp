@@ -17,17 +17,17 @@
 using namespace std;
 
 array<wchar_t*, 11> vecAttributes = {
-	(wchar_t*)L"defaultNamingContext",
-	(wchar_t*)L"configurationNamingContext",
-	(wchar_t*)L"schemaNamingContext",
-	(wchar_t*)L"rootDomainNamingContext",
-	(wchar_t*)L"dnsHostName",
-	(wchar_t*)L"supportedLDAPVersion",
-	(wchar_t*)L"supportedSASLMechanisms",
-	(wchar_t*)L"supportedControl",
-	(wchar_t*)L"supportedCapabilities",
-	(wchar_t*)L"supportedExtension",
-	nullptr
+	const_cast<wchar_t*>(L"defaultNamingContext"),
+	const_cast<wchar_t*>(L"configurationNamingContext"),
+	const_cast<wchar_t*>(L"schemaNamingContext"),
+	const_cast<wchar_t*>(L"rootDomainNamingContext"),
+	const_cast<wchar_t*>(L"dnsHostName"),
+	const_cast<wchar_t*>(L"supportedLDAPVersion"),
+	const_cast<wchar_t*>(L"supportedSASLMechanisms"),
+	const_cast<wchar_t*>(L"supportedControl"),
+	const_cast<wchar_t*>(L"supportedCapabilities"),
+	const_cast<wchar_t*>(L"supportedExtension"),
+	nullptr  // We need a null array element for the ldap_search_sW call
 };
 
 void PrintLdapError(ULONG ldapErr, const wchar_t* where);
@@ -41,65 +41,69 @@ int main()
 	LDAPMessage* pLdapMessage = nullptr;
 	LDAPMessage* pLdapMsgFirstEntry = nullptr;
 
-	pLdapSessionHandle = ldap_initW(nullptr, LDAP_PORT);
+	__try {
 
-	if (!pLdapSessionHandle) {
-		wcerr << L"Error: ldap_initW returned NULL";
-		goto Cleanup;
-	}
+		pLdapSessionHandle = ldap_initW(nullptr, LDAP_PORT);
 
-	returnValue = ldap_set_optionW(pLdapSessionHandle, LDAP_OPT_PROTOCOL_VERSION, &ldapVersion);
-	if (LDAP_SUCCESS != returnValue) {
-		PrintLdapError(returnValue, L"ldap_set_optionW");
-		goto Cleanup;
-	}
-
-	returnValue = ldap_connect(pLdapSessionHandle, nullptr);
-	if (LDAP_SUCCESS != returnValue) {
-		PrintLdapError(returnValue, L"ldap_connect");
-		goto Cleanup;
-	}
-
-	returnValue = ldap_bind_s(pLdapSessionHandle, nullptr, nullptr, LDAP_AUTH_NEGOTIATE);
-	if (LDAP_SUCCESS != returnValue) {
-		PrintLdapError(returnValue, L"ldap_bind_s");
-		goto Cleanup;
-	}
-
-	returnValue = ldap_search_sW(pLdapSessionHandle,
-		(PWCHAR)L"",
-		LDAP_SCOPE_BASE,
-		(PWCHAR)L"(objectClass=*)",
-		const_cast<PWCHAR*>(vecAttributes.data()),
-		0,
-		&pLdapMessage);
-	if (LDAP_SUCCESS != returnValue) {
-		PrintLdapError(returnValue, L"ldap_search_sW(RootDSE)");
-		if (pLdapMessage) {
-			ldap_msgfree(pLdapMessage);
-			pLdapMessage = nullptr;
+		if (!pLdapSessionHandle) {
+			wcerr << L"Error: ldap_initW returned NULL";
+			__leave;
 		}
-		goto Cleanup;
+
+		returnValue = ldap_set_optionW(pLdapSessionHandle, LDAP_OPT_PROTOCOL_VERSION, &ldapVersion);
+		if (LDAP_SUCCESS != returnValue) {
+			PrintLdapError(returnValue, L"ldap_set_optionW");
+			__leave;
+		}
+
+		returnValue = ldap_connect(pLdapSessionHandle, nullptr);
+		if (LDAP_SUCCESS != returnValue) {
+			PrintLdapError(returnValue, L"ldap_connect");
+			__leave;
+		}
+
+		returnValue = ldap_bind_s(pLdapSessionHandle, nullptr, nullptr, LDAP_AUTH_NEGOTIATE);
+		if (LDAP_SUCCESS != returnValue) {
+			PrintLdapError(returnValue, L"ldap_bind_s");
+			__leave;
+		}
+
+		returnValue = ldap_search_sW(pLdapSessionHandle,
+			(PWCHAR)L"",
+			LDAP_SCOPE_BASE,
+			(PWCHAR)L"(objectClass=*)",
+			const_cast<PWCHAR*>(vecAttributes.data()),
+			0,
+			&pLdapMessage);
+		if (LDAP_SUCCESS != returnValue) {
+			PrintLdapError(returnValue, L"ldap_search_sW(RootDSE)");
+			if (pLdapMessage) {
+				ldap_msgfree(pLdapMessage);
+				pLdapMessage = nullptr;
+			}
+			__leave;
+		}
+
+		pLdapMsgFirstEntry = ldap_first_entry(pLdapSessionHandle, pLdapMessage);
+		if (!pLdapMsgFirstEntry) {
+			wcerr << L"No RootDSE entry returned\n";
+			ldap_msgfree(pLdapMsgFirstEntry);
+			__leave;
+		}
+
+		wcout << L"RootDSE attributes:\n";
+		for (auto attr : vecAttributes) {
+			PrintAttributeValue(pLdapSessionHandle, pLdapMessage, attr);
+		}
+
+		ldap_msgfree(pLdapMessage);
+
 	}
-
-	pLdapMsgFirstEntry = ldap_first_entry(pLdapSessionHandle, pLdapMessage);
-	if (!pLdapMsgFirstEntry) {
-		wcerr << L"No RootDSE entry returned\n";
-		ldap_msgfree(pLdapMsgFirstEntry);
-		goto Cleanup;
-	}
-
-	wcout << L"RootDSE attributes:\n";
-	for (auto attr : vecAttributes) {
-		PrintAttributeValue(pLdapSessionHandle, pLdapMessage, attr);
-	}
-
-	ldap_msgfree(pLdapMessage);
-
-Cleanup:
-	if (pLdapSessionHandle) {
-		ldap_unbind(pLdapSessionHandle);
-		pLdapSessionHandle = nullptr;
+	__finally {
+		if (pLdapSessionHandle) {
+			ldap_unbind(pLdapSessionHandle);
+			pLdapSessionHandle = nullptr;
+		}
 	}
 
 	return 0;
