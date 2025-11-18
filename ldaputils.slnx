@@ -3,5 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="getrootdse/getrootdse.vcxproj" Id="4e4a3284-6240-4cbf-b27b-34e38d98c065" />
   <Project Path="ldapsearcher/ldapsearcher.vcxproj" Id="c13d9d2f-4154-427d-8835-595dea3a73d8" />
 </Solution>
