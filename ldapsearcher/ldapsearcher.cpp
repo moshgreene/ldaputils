@@ -13,10 +13,16 @@ array<wchar_t*, 4> vecAttributes = {
 	nullptr  // We need a null array element for the ldap_search_sW call
 };
 
-
-
-int main()
+int wmain(int argc, wchar_t* argv[])
 {
+	if (argc > 2) {
+		wcerr << L"supply a SAM account name\n";
+		return 0;
+	}
+
+	wstring samAccountName{ argv[1] };
+	wstring ldapSearch{ L"(&(objectClass=person)(sAMAccountName=" + samAccountName + L"))" };
+
 	LDAP* pLdapSessionHandle = nullptr;
 	ULONG returnValue = 0;
 	ULONG ldapVersion = LDAP_VERSION3;
@@ -54,7 +60,7 @@ int main()
 		pLdapSessionHandle,
 		(PWCHAR)rootDSE.c_str(),
 		LDAP_SCOPE_SUBTREE,
-		(PWCHAR)L"(&(objectClass=person)(sAMAccountName=chris))",
+		(PWCHAR)ldapSearch.c_str(),
 		const_cast<PWCHAR*>(vecAttributes.data()),
 		0,
 		&pLdapMessage);

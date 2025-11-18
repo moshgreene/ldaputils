@@ -7,7 +7,6 @@
 void GetRootDSE(LDAP* pLdapSessionHandle, std::wstring& rootDSE)
 {
 	ULONG returnValue = 0;
-	ULONG ldapVersion = LDAP_VERSION3;
 	LDAPMessage* pLdapMessage = nullptr;
 	LDAPMessage* pLdapMsgFirstEntry = nullptr;
 
@@ -37,8 +36,20 @@ void GetRootDSE(LDAP* pLdapSessionHandle, std::wstring& rootDSE)
 	}
 
 	std::wcout << L"RootDSE attributes:\n";
+	bool bRootDSEFound = false;
 	if (LDAP_SUCCESS == returnValue) {
-		PrintAttributeValue(pLdapSessionHandle, pLdapMessage, L"distinguishedName");
+		for (auto attr : attrs) {
+			wchar_t** vals = ldap_get_valuesW(pLdapSessionHandle, pLdapMsgFirstEntry, (PWCHAR)attr);
+			if (*vals) { 
+				rootDSE.assign(*vals);
+				bRootDSEFound = true;
+				ldap_value_freeW(vals);
+				break;
+			}
+			else {
+				return;
+			}
+		}
 	}
 	else
 	{
@@ -53,12 +64,6 @@ void GetRootDSE(LDAP* pLdapSessionHandle, std::wstring& rootDSE)
 		ldap_msgfree(pLdapMessage);
 		pLdapMessage = nullptr;
 	}
-
-	if (pLdapSessionHandle) {
-		ldap_unbind(pLdapSessionHandle);
-		pLdapSessionHandle = nullptr;
-	}
-
 
 	return;
 }
